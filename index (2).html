@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDR Pipeline & Activity Dashboard | Karar Syed</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Barlow:wght@300;400;500;600&family=Barlow+Semi+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080b10;
+    --surface: #0e1319;
+    --surface2: #141a22;
+    --surface3: #1a2230;
+    --border: rgba(255,255,255,0.06);
+    --border2: rgba(255,255,255,0.1);
+    --accent: #00ff87;
+    --accent-dim: rgba(0,255,135,0.15);
+    --accent-glow: rgba(0,255,135,0.08);
+    --amber: #ffb700;
+    --amber-dim: rgba(255,183,0,0.12);
+    --red: #ff4757;
+    --red-dim: rgba(255,71,87,0.12);
+    --blue: #4dabf7;
+    --blue-dim: rgba(77,171,247,0.12);
+    --text: #e8edf5;
+    --muted: #4a5568;
+    --muted2: #718096;
+    --font-display: 'Barlow Condensed', sans-serif;
+    --font-body: 'Barlow', sans-serif;
+    --font-semi: 'Barlow Semi Condensed', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* scanline texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; }
+
+  /* HEADER */
+  header {
+    padding: 0 40px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8,11,16,0.95);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 14px;
+    color: #080b10;
+    letter-spacing: -0.5px;
+  }
+
+  .brand-text {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .brand-text span { color: var(--accent); }
+
+  .header-center {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px;
+  }
+
+  .tab {
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--muted2);
+    transition: all 0.15s;
+    border: none;
+    background: transparent;
+  }
+
+  .tab.active {
+    background: var(--accent);
+    color: #080b10;
+  }
+
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .quota-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent-dim);
+    border: 1px solid rgba(0,255,135,0.2);
+    border-radius: 4px;
+    padding: 6px 12px;
+  }
+
+  .quota-label {
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .quota-val {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: blink 2s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  /* MAIN */
+  main { padding: 28px 40px; max-width: 1440px; margin: 0 auto; }
+
+  /* HERO ROW */
+  .hero-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .hero-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.4s ease both;
+    transition: border-color 0.2s;
+  }
+
+  .hero-card:hover { border-color: var(--border2); }
+
+  .hero-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+  }
+
+  .hero-card.g::after { background: linear-gradient(90deg, transparent, var(--accent), transparent); }
+  .hero-card.a::after { background: linear-gradient(90deg, transparent, var(--amber), transparent); }
+  .hero-card.r::after { background: linear-gradient(90deg, transparent, var(--red), transparent); }
+  .hero-card.b::after { background: linear-gradient(90deg, transparent, var(--blue), transparent); }
+
+  .hero-label {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-bottom: 8px;
+  }
+
+  .hero-val {
+    font-family: var(--font-display);
+    font-size: 34px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+
+  .hero-val.g { color: var(--accent); }
+  .hero-val.a { color: var(--amber); }
+  .hero-val.r { color: var(--red); }
+  .hero-val.b { color: var(--blue); }
+  .hero-val.w { color: var(--text); }
+
+  .hero-sub {
+    font-size: 11px;
+    color: var(--muted2);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .trend-up { color: var(--accent); font-weight: 600; }
+  .trend-down { color: var(--red); font-weight: 600; }
+
+  /* GRID */
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .grid-3b {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  /* PANEL */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .panel-head {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .panel-meta {
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--muted2);
+    text-transform: uppercase;
+  }
+
+  .panel-body { padding: 20px; }
+
+  /* PIPELINE FUNNEL */
+  .funnel-wrap { padding: 20px; }
+
+  .funnel-stage {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .funnel-stage:hover { opacity: 0.85; }
+
+  .stage-name {
+    font-family: var(--font-display);
+    font-size: 12px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--muted2);
+    width: 130px;
+    flex-shrink: 0;
+  }
+
+  .stage-bar-wrap {
+    flex: 1;
+    height: 32px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .stage-bar {
+    height: 100%;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    padding-left: 12px;
+    transition: width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .stage-count {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(8,11,16,0.9);
+    letter-spacing: 0.5px;
+  }
+
+  .stage-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    width: 80px;
+    flex-shrink: 0;
+  }
+
+  .stage-pct {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .stage-arr {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    color: var(--muted2);
+    margin-top: 2px;
+  }
+
+  .conv-arrow {
+    font-size: 10px;
+    color: var(--muted);
+    padding: 0 0 8px 130px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-display);
+    letter-spacing: 0.5px;
+    font-size: 10px;
+  }
+
+  .conv-rate { color: var(--accent); font-weight: 600; }
+
+  /* ACTIVITY TABLE */
+  .activity-table { width: 100%; border-collapse: collapse; }
+
+  .activity-table th {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .activity-table td {
+    padding: 11px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-semi);
+  }
+
+  .activity-table tr:last-child td { border-bottom: none; }
+  .activity-table tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
+
+  .type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+  }
+
+  .type-call { background: rgba(77,171,247,0.12); color: var(--blue); border: 1px solid rgba(77,171,247,0.2); }
+  .type-email { background: rgba(0,255,135,0.08); color: var(--accent); border: 1px solid rgba(0,255,135,0.15); }
+  .type-linkedin { background: rgba(255,183,0,0.1); color: var(--amber); border: 1px solid rgba(255,183,0,0.2); }
+  .type-meeting { background: rgba(255,71,87,0.1); color: var(--red); border: 1px solid rgba(255,71,87,0.2); }
+
+  .outcome-badge {
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+  }
+
+  .out-booked { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(0,255,135,0.2); }
+  .out-vm { background: var(--surface3); color: var(--muted2); border: 1px solid var(--border); }
+  .out-replied { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,183,0,0.2); }
+  .out-noanswer { background: var(--surface3); color: var(--muted); border: 1px solid var(--border); }
+  .out-nurture { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(77,171,247,0.2); }
+
+  /* BANT SCORECARD */
+  .bant-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px; }
+
+  .bant-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 14px;
+  }
+
+  .bant-letter {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+
+  .bant-name {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-bottom: 10px;
+  }
+
+  .bant-bar-bg {
+    height: 4px;
+    background: var(--surface3);
+    border-radius: 2px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+
+  .bant-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1.2s ease;
+  }
+
+  .bant-stat {
+    font-family: var(--font-display);
+    font-size: 11px;
+    color: var(--muted2);
+    letter-spacing: 0.3px;
+  }
+
+  /* CHANNEL CHART */
+  .channel-list { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+
+  .channel-item { }
+
+  .channel-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .channel-name {
+    font-family: var(--font-display);
+    font-size: 12px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--muted2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .channel-icon { font-size: 14px; }
+
+  .channel-stats {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .ch-sent { font-family: var(--font-display); font-size: 13px; color: var(--muted2); }
+  .ch-rate { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+
+  .channel-bar-bg {
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .channel-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1.3s ease;
+  }
+
+  /* WEEKLY CHART */
+  .weekly-chart { padding: 20px; }
+
+  .chart-area {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    height: 120px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+  }
+
+  .chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+
+  .chart-bar-wrap {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .chart-bar {
+    flex: 1;
+    border-radius: 2px 2px 0 0;
+    transition: height 1s ease;
+    min-height: 4px;
+  }
+
+  .chart-label {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  .chart-legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 4px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--muted2);
+  }
+
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* SEQUENCE TRACKER */
+  .seq-list { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+
+  .seq-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 14px 16px;
+    transition: border-color 0.15s;
+    cursor: pointer;
+  }
+
+  .seq-item:hover { border-color: var(--border2); }
+
+  .seq-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+
+  .seq-name {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .seq-steps { display: flex; gap: 4px; align-items: center; margin-top: 4px; }
+
+  .step-dot {
+    width: 24px;
+    height: 5px;
+    border-radius: 2px;
+    background: var(--surface3);
+  }
+
+  .step-dot.done { background: var(--accent); }
+  .step-dot.current { background: var(--amber); animation: pulse-bar 1.5s infinite; }
+
+  @keyframes pulse-bar {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .seq-meta {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--muted2);
+    text-align: right;
+  }
+
+  .seq-rate {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 800;
+    text-align: right;
+  }
+
+  /* QUOTA GAUGE */
+  .gauge-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+
+  .gauge-svg { margin-bottom: 12px; }
+
+  .gauge-center {
+    text-align: center;
+  }
+
+  .gauge-pct {
+    font-family: var(--font-display);
+    font-size: 42px;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+
+  .gauge-label {
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-top: 4px;
+  }
+
+  .gauge-breakdown {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+    margin-top: 16px;
+  }
+
+  .gauge-stat {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    text-align: center;
+  }
+
+  .gs-val {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 2px;
+  }
+
+  .gs-label {
+    font-family: var(--font-display);
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero-card:nth-child(1) { animation-delay: 0.04s; }
+  .hero-card:nth-child(2) { animation-delay: 0.08s; }
+  .hero-card:nth-child(3) { animation-delay: 0.12s; }
+  .hero-card:nth-child(4) { animation-delay: 0.16s; }
+  .hero-card:nth-child(5) { animation-delay: 0.20s; }
+  .hero-card:nth-child(6) { animation-delay: 0.24s; }
+
+  .panel:nth-child(1) { animation-delay: 0.1s; }
+  .panel:nth-child(2) { animation-delay: 0.15s; }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 16px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  footer span { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">KS</div>
+    <div class="brand-text">SDR <span>Pipeline</span> Dashboard</div>
+  </div>
+  <div class="header-center">
+    <button class="tab active">Overview</button>
+    <button class="tab">Activity</button>
+    <button class="tab">Pipeline</button>
+    <button class="tab">Sequences</button>
+  </div>
+  <div class="header-right">
+    <div class="quota-pill">
+      <div class="live-dot"></div>
+      <div class="quota-label">Weekly Quota</div>
+      <div class="quota-val">83%</div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- HERO ROW -->
+  <div class="hero-row">
+    <div class="hero-card g">
+      <div class="hero-label">Meetings Booked</div>
+      <div class="hero-val g">24</div>
+      <div class="hero-sub"><span class="trend-up">↑ 6</span> vs last month</div>
+    </div>
+    <div class="hero-card a">
+      <div class="hero-label">Outreach Touches</div>
+      <div class="hero-val a">312</div>
+      <div class="hero-sub"><span class="trend-up">↑ 18%</span> week-over-week</div>
+    </div>
+    <div class="hero-card b">
+      <div class="hero-label">Connect Rate</div>
+      <div class="hero-val b">14.2%</div>
+      <div class="hero-sub"><span class="trend-up">↑ 2.1pts</span> vs benchmark</div>
+    </div>
+    <div class="hero-card r">
+      <div class="hero-label">Pipeline Created</div>
+      <div class="hero-val r">$284K</div>
+      <div class="hero-sub"><span class="trend-up">↑ $42K</span> this week</div>
+    </div>
+    <div class="hero-card g">
+      <div class="hero-label">Qualified Leads</div>
+      <div class="hero-val w">47</div>
+      <div class="hero-sub">BANT-scored &gt; 70/100</div>
+    </div>
+    <div class="hero-card a">
+      <div class="hero-label">Avg Response Time</div>
+      <div class="hero-val a">4.2<span style="font-size:18px;font-weight:400">h</span></div>
+      <div class="hero-sub"><span class="trend-down">↓ 1.3h</span> improvement</div>
+    </div>
+  </div>
+
+  <!-- ROW 1 -->
+  <div class="grid-3">
+
+    <!-- PIPELINE FUNNEL -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Pipeline Funnel</div>
+        <div class="panel-meta">Q2 2025 · 14-week view</div>
+      </div>
+      <div class="funnel-wrap">
+        <div class="funnel-stage">
+          <div class="stage-name">Prospected</div>
+          <div class="stage-bar-wrap">
+            <div class="stage-bar" style="width:100%;background:linear-gradient(90deg,rgba(77,171,247,0.7),rgba(77,171,247,0.4))">
+              <span class="stage-count">218 leads</span>
+            </div>
+          </div>
+          <div class="stage-right">
+            <div class="stage-pct" style="color:var(--blue)">218</div>
+            <div class="stage-arr">$0 ARR</div>
+          </div>
+        </div>
+        <div class="conv-arrow">↳ <span class="conv-rate">38% connected</span></div>
+
+        <div class="funnel-stage">
+          <div class="stage-name">Connected</div>
+          <div class="stage-bar-wrap">
+            <div class="stage-bar" style="width:76%;background:linear-gradient(90deg,rgba(0,255,135,0.6),rgba(0,255,135,0.3))">
+              <span class="stage-count">83 leads</span>
+            </div>
+          </div>
+          <div class="stage-right">
+            <div class="stage-pct" style="color:var(--accent)">83</div>
+            <div class="stage-arr">$0 ARR</div>
+          </div>
+        </div>
+        <div class="conv-arrow">↳ <span class="conv-rate">57% qualified</span></div>
+
+        <div class="funnel-stage">
+          <div class="stage-name">Qualified</div>
+          <div class="stage-bar-wrap">
+            <div class="stage-bar" style="width:52%;background:linear-gradient(90deg,rgba(0,255,135,0.8),rgba(0,255,135,0.5))">
+              <span class="stage-count">47 leads</span>
+            </div>
+          </div>
+          <div class="stage-right">
+            <div class="stage-pct" style="color:var(--accent)">47</div>
+            <div class="stage-arr">$284K potential</div>
+          </div>
+        </div>
+        <div class="conv-arrow">↳ <span class="conv-rate">51% meeting set</span></div>
+
+        <div class="funnel-stage">
+          <div class="stage-name">Meeting Set</div>
+          <div class="stage-bar-wrap">
+            <div class="stage-bar" style="width:34%;background:linear-gradient(90deg,rgba(255,183,0,0.8),rgba(255,183,0,0.4))">
+              <span class="stage-count">24 booked</span>
+            </div>
+          </div>
+          <div class="stage-right">
+            <div class="stage-pct" style="color:var(--amber)">24</div>
+            <div class="stage-arr">$142K pipeline</div>
+          </div>
+        </div>
+        <div class="conv-arrow">↳ <span class="conv-rate">79% showed</span></div>
+
+        <div class="funnel-stage">
+          <div class="stage-name">Showed</div>
+          <div class="stage-bar-wrap">
+            <div class="stage-bar" style="width:22%;background:linear-gradient(90deg,rgba(255,71,87,0.8),rgba(255,71,87,0.4))">
+              <span class="stage-count">19 completed</span>
+            </div>
+          </div>
+          <div class="stage-right">
+            <div class="stage-pct" style="color:var(--red)">19</div>
+            <div class="stage-arr">$112K active</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- QUOTA GAUGE -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Quota Attainment</div>
+          <div class="panel-meta">This Month</div>
+        </div>
+        <div class="gauge-wrap">
+          <svg class="gauge-svg" width="160" height="90" viewBox="0 0 160 90">
+            <path d="M 20 80 A 60 60 0 0 1 140 80" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12" stroke-linecap="round"/>
+            <path d="M 20 80 A 60 60 0 0 1 140 80" fill="none" stroke="url(#gaugeGrad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="188" stroke-dashoffset="32"/>
+            <defs>
+              <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#00ff87" stop-opacity="0.6"/>
+                <stop offset="100%" stop-color="#00ff87"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="gauge-center">
+            <div class="gauge-pct">83%</div>
+            <div class="gauge-label">Of Monthly Target</div>
+          </div>
+          <div class="gauge-breakdown">
+            <div class="gauge-stat">
+              <div class="gs-val" style="color:var(--accent)">24</div>
+              <div class="gs-label">Meetings Booked</div>
+            </div>
+            <div class="gauge-stat">
+              <div class="gs-val" style="color:var(--amber)">29</div>
+              <div class="gs-label">Monthly Target</div>
+            </div>
+            <div class="gauge-stat">
+              <div class="gs-val" style="color:var(--blue)">5</div>
+              <div class="gs-label">Days Remaining</div>
+            </div>
+            <div class="gauge-stat">
+              <div class="gs-val" style="color:var(--red)">1.0/day</div>
+              <div class="gs-label">Needed to Hit</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ROW 2 -->
+  <div class="grid-2">
+
+    <!-- ACTIVITY LOG -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Activity Log</div>
+        <div class="panel-meta">Last 20 touches</div>
+      </div>
+      <table class="activity-table">
+        <thead>
+          <tr>
+            <th>Prospect</th>
+            <th>Type</th>
+            <th>Title</th>
+            <th>Outcome</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="activityLog"></tbody>
+      </table>
+    </div>
+
+    <!-- RIGHT: CHANNEL + BANT -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- CHANNEL PERFORMANCE -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Channel Performance</div>
+          <div class="panel-meta">Reply / Connect Rate</div>
+        </div>
+        <div class="channel-list">
+          <div class="channel-item">
+            <div class="channel-top">
+              <div class="channel-name"><span class="channel-icon">📞</span> Cold Call</div>
+              <div class="channel-stats">
+                <span class="ch-sent">187 dials</span>
+                <span class="ch-rate" style="color:var(--blue)">14.2%</span>
+              </div>
+            </div>
+            <div class="channel-bar-bg">
+              <div class="channel-bar-fill" style="width:14.2%;background:var(--blue)"></div>
+            </div>
+          </div>
+          <div class="channel-item">
+            <div class="channel-top">
+              <div class="channel-name"><span class="channel-icon">✉️</span> Cold Email</div>
+              <div class="channel-stats">
+                <span class="ch-sent">284 sent</span>
+                <span class="ch-rate" style="color:var(--accent)">8.1%</span>
+              </div>
+            </div>
+            <div class="channel-bar-bg">
+              <div class="channel-bar-fill" style="width:8.1%;background:var(--accent)"></div>
+            </div>
+          </div>
+          <div class="channel-item">
+            <div class="channel-top">
+              <div class="channel-name"><span class="channel-icon">💼</span> LinkedIn</div>
+              <div class="channel-stats">
+                <span class="ch-sent">142 msgs</span>
+                <span class="ch-rate" style="color:var(--amber)">21.8%</span>
+              </div>
+            </div>
+            <div class="channel-bar-bg">
+              <div class="channel-bar-fill" style="width:21.8%;background:var(--amber)"></div>
+            </div>
+          </div>
+          <div class="channel-item">
+            <div class="channel-top">
+              <div class="channel-name"><span class="channel-icon">🔁</span> Sequence</div>
+              <div class="channel-stats">
+                <span class="ch-sent">96 enrolled</span>
+                <span class="ch-rate" style="color:var(--red)">18.7%</span>
+              </div>
+            </div>
+            <div class="channel-bar-bg">
+              <div class="channel-bar-fill" style="width:18.7%;background:var(--red)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BANT SCORECARD -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">BANT Qualification</div>
+          <div class="panel-meta">47 Qualified Leads</div>
+        </div>
+        <div class="bant-grid">
+          <div class="bant-card">
+            <div class="bant-letter" style="color:var(--accent)">B</div>
+            <div class="bant-name">Budget Confirmed</div>
+            <div class="bant-bar-bg">
+              <div class="bant-bar-fill" style="width:72%;background:var(--accent)"></div>
+            </div>
+            <div class="bant-stat">72% of qualified leads — 34 confirmed</div>
+          </div>
+          <div class="bant-card">
+            <div class="bant-letter" style="color:var(--blue)">A</div>
+            <div class="bant-name">Authority (DM reached)</div>
+            <div class="bant-bar-bg">
+              <div class="bant-bar-fill" style="width:85%;background:var(--blue)"></div>
+            </div>
+            <div class="bant-stat">85% of qualified leads — 40 confirmed</div>
+          </div>
+          <div class="bant-card">
+            <div class="bant-letter" style="color:var(--amber)">N</div>
+            <div class="bant-name">Need Identified</div>
+            <div class="bant-bar-bg">
+              <div class="bant-bar-fill" style="width:91%;background:var(--amber)"></div>
+            </div>
+            <div class="bant-stat">91% of qualified leads — 43 confirmed</div>
+          </div>
+          <div class="bant-card">
+            <div class="bant-letter" style="color:var(--red)">T</div>
+            <div class="bant-name">Timeline &lt; 6 months</div>
+            <div class="bant-bar-bg">
+              <div class="bant-bar-fill" style="width:61%;background:var(--red)"></div>
+            </div>
+            <div class="bant-stat">61% of qualified leads — 29 confirmed</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ROW 3 -->
+  <div class="grid-2">
+
+    <!-- WEEKLY ACTIVITY -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Weekly Activity Volume</div>
+        <div class="panel-meta">Last 8 weeks</div>
+      </div>
+      <div class="weekly-chart">
+        <div class="chart-area" id="weeklyChart"></div>
+        <div style="display:flex;justify-content:space-between" id="weekLabels"></div>
+        <div class="chart-legend" style="margin-top:12px">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Calls</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Emails</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Meetings</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEQUENCES -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Active Sequences</div>
+        <div class="panel-meta">5 running</div>
+      </div>
+      <div class="seq-list" id="seqList"></div>
+    </div>
+
+  </div>
+
+</main>
+
+<footer>
+  <div>Built by <span>Karar Syed</span> · Sales Development Portfolio · Austin, TX</div>
+  <div>Certifications: Salesforce Sales Operations · Google Advanced Data Analytics · Google Project Management · HubSpot Service Hub</div>
+</footer>
+
+</div>
+
+<script>
+// ── ACTIVITY LOG DATA ──────────────────────────────────────────────────
+const activities = [
+  { name:"Marcus T.", type:"call", title:"VP of Operations", outcome:"booked", time:"9:14 AM" },
+  { name:"Priya K.", type:"email", title:"Director of IT", outcome:"replied", time:"9:02 AM" },
+  { name:"Jordan L.", type:"linkedin", title:"Chief Revenue Officer", outcome:"nurture", time:"8:51 AM" },
+  { name:"Alex R.", type:"call", title:"Head of Product", outcome:"vm", time:"8:44 AM" },
+  { name:"Dana W.", type:"email", title:"VP of Sales", outcome:"booked", time:"8:30 AM" },
+  { name:"Chris M.", type:"meeting", title:"Operations Manager", outcome:"booked", time:"Yesterday" },
+  { name:"Taylor B.", type:"call", title:"CTO", outcome:"noanswer", time:"Yesterday" },
+  { name:"Sam P.", type:"email", title:"Director of Finance", outcome:"replied", time:"Yesterday" },
+  { name:"Riley O.", type:"linkedin", title:"VP of Marketing", outcome:"nurture", time:"Yesterday" },
+  { name:"Jamie N.", type:"call", title:"COO", outcome:"booked", time:"Mon" },
+];
+
+const typeMap = {
+  call: '<span class="type-badge type-call">📞 Call</span>',
+  email: '<span class="type-badge type-email">✉ Email</span>',
+  linkedin: '<span class="type-badge type-linkedin">💼 LinkedIn</span>',
+  meeting: '<span class="type-badge type-meeting">🗓 Meeting</span>',
+};
+
+const outcomeMap = {
+  booked: '<span class="outcome-badge out-booked">✓ Booked</span>',
+  vm: '<span class="outcome-badge out-vm">Voicemail</span>',
+  replied: '<span class="outcome-badge out-replied">Replied</span>',
+  noanswer: '<span class="outcome-badge out-noanswer">No Answer</span>',
+  nurture: '<span class="outcome-badge out-nurture">Nurture</span>',
+};
+
+document.getElementById('activityLog').innerHTML = activities.map(a => `
+  <tr>
+    <td style="font-weight:600">${a.name}</td>
+    <td>${typeMap[a.type]}</td>
+    <td style="color:var(--muted2);font-size:12px">${a.title}</td>
+    <td>${outcomeMap[a.outcome]}</td>
+    <td style="color:var(--muted);font-family:var(--font-display);font-size:11px;letter-spacing:0.5px">${a.time}</td>
+  </tr>
+`).join('');
+
+// ── WEEKLY CHART ──────────────────────────────────────────────────────
+const weeks = [
+  { label:"W1", calls:28, emails:34, meetings:2 },
+  { label:"W2", calls:32, emails:38, meetings:3 },
+  { label:"W3", calls:24, emails:29, meetings:2 },
+  { label:"W4", calls:38, emails:42, meetings:4 },
+  { label:"W5", calls:35, emails:44, meetings:3 },
+  { label:"W6", calls:41, emails:48, meetings:4 },
+  { label:"W7", calls:44, emails:52, meetings:5 },
+  { label:"W8", calls:48, emails:58, meetings:6 },
+];
+
+const maxVal = 58;
+const chartArea = document.getElementById('weeklyChart');
+const labels = document.getElementById('weekLabels');
+
+chartArea.innerHTML = weeks.map(w => `
+  <div class="chart-col">
+    <div class="chart-bar-wrap">
+      <div class="chart-bar" style="height:${(w.calls/maxVal)*100}%;background:rgba(77,171,247,0.7)"></div>
+      <div class="chart-bar" style="height:${(w.emails/maxVal)*100}%;background:rgba(0,255,135,0.6)"></div>
+      <div class="chart-bar" style="height:${(w.meetings/maxVal)*110}%;background:var(--amber)"></div>
+    </div>
+  </div>
+`).join('');
+
+labels.innerHTML = weeks.map(w => `
+  <div style="font-family:var(--font-display);font-size:10px;letter-spacing:0.5px;color:var(--muted);text-transform:uppercase;flex:1;text-align:center">${w.label}</div>
+`).join('');
+
+// ── SEQUENCES ──────────────────────────────────────────────────────────
+const sequences = [
+  { name:"Cold Intro — Decision Makers", steps:6, done:6, current:0, enrolled:34, rate:"24%", color:"var(--accent)" },
+  { name:"Follow-Up Cadence — No Reply", steps:5, done:3, current:1, enrolled:28, rate:"18%", color:"var(--amber)" },
+  { name:"Event Follow-Up", steps:4, done:4, current:0, enrolled:16, rate:"31%", color:"var(--accent)" },
+  { name:"Champion Re-Engage", steps:5, done:2, current:1, enrolled:12, rate:"22%", color:"var(--blue)" },
+  { name:"New Vertical — Outreach", steps:6, done:1, current:1, enrolled:8, rate:"—", color:"var(--muted2)" },
+];
+
+document.getElementById('seqList').innerHTML = sequences.map(s => {
+  const dots = Array.from({length: s.steps}, (_,i) => {
+    if (i < s.done) return '<div class="step-dot done"></div>';
+    if (i === s.done && s.current) return '<div class="step-dot current"></div>';
+    return '<div class="step-dot"></div>';
+  }).join('');
+  return `
+    <div class="seq-item">
+      <div class="seq-top">
+        <div>
+          <div class="seq-name">${s.name}</div>
+          <div class="seq-steps">${dots}</div>
+        </div>
+        <div>
+          <div class="seq-rate" style="color:${s.color}">${s.rate}</div>
+          <div class="seq-meta">${s.enrolled} enrolled</div>
+        </div>
+      </div>
+    </div>
+  `;
+}).join('');
+</script>
+</body>
+</html>
